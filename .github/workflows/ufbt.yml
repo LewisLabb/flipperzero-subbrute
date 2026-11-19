@@ -1,0 +1,52 @@
+name: ufbt
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_channel:
+        description: Canal SDK (release, dev, rc)
+        required: true
+        default: release
+        type: string
+      sdk_index_url:
+        description: Index SDK https (vide = firmware officiel)
+        required: false
+        default: ""
+        type: string
+      app_path:
+        description: Dossier qui contient application.fam
+        required: false
+        default: "."
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compiler avec ufbt
+        uses: flipperdevices/flipperzero-ufbt-action@v0.1.4
+        with:
+          app-dir: ${{ inputs.app_path }}
+          sdk-channel: ${{ inputs.sdk_channel }}
+          sdk-index-url: ${{ inputs.sdk_index_url }}
+
+      - name: Rassembler les FAP
+        run: |
+          mkdir -p out
+          find . -path ./out -prune -o -name '*.fap' -print | while read -r fap; do
+            cp "$fap" out/
+          done
+          find out -name '*.fap' | grep -q .
+
+      - name: Publier l'artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fap
+          path: out/*.fap
+          if-no-files-found: error
